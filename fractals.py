@@ -3,16 +3,27 @@ import sys
 pygame.init()
 screen = pygame.display.set_mode((800, 800))
 pygame.display.set_caption('Fractals')
+font = pygame.font.SysFont("consolas", 20)
 running = True
+
 import numpy as np
+from numba import njit, prange
 
 iterations = 50
 
 from colour import Color
-red = Color("red")
-colours = list(red.range_to(Color("purple"),iterations))
-colours.append(Color("black"))
-colours = np.array([tuple(i*255 for i in colour.rgb) for colour in colours])
+def compute_colours(iterations):
+    red = Color("red")
+    colours = list(red.range_to(Color("purple"),iterations))
+    colours.append(Color("black"))
+    colours = np.array([tuple(i*255 for i in colour.rgb) for colour in colours])
+    return colours
+
+colours = compute_colours(iterations)
+
+def dynamic_iterations(size, base=50):
+    import math
+    return int(base + 20 * math.log2(4 / size))
 
 def mandelbrot_recursive(point, max = iterations, count = 0, start = 0):
     if abs(start) > 2:
@@ -30,21 +41,21 @@ def mandelbrot_basic(point, max = iterations, start = 0):
         start = (start**2) + point
     return max
 
-def mandelbrot(bounds, max = iterations):
-    re = np.linspace(bounds[0][0], bounds[0][1], 800)
-    im = np.linspace(bounds[1][0], bounds[1][1], 800)
-    x, y = np.meshgrid(re, im)
-    points = x + 1j*y
+@njit(parallel=True, fastmath=True)
+def mandelbrot(bounds, max):
+    re = np.linspace(bounds[0][0], bounds[0][1], 800).astype(np.longdouble)
+    im = np.linspace(bounds[1][0], bounds[1][1], 800).astype(np.longdouble)
+    M = np.full((800,800), max, dtype=np.int32)
 
-    Z = np.zeros_like(points, dtype=np.complex128)
-    M = np.full(points.shape, max, dtype=np.int32)
-
-    mask = np.ones(points.shape, dtype=bool)
-    for i in range(max):
-        Z[mask] = Z[mask] * Z[mask] + points[mask]
-        mask = (np.abs(Z) <= 2)
-        M[np.logical_not(mask) & (M == max)] = i
-
+    for ix in prange(800):
+        for iy in prange(800):
+            c = re[ix]+1j*im[iy]
+            z = 0.0j
+            for n in range(max):
+                if ((z.real*z.real)+(z.imag*z.imag)) > 4:
+                    M[iy,ix] = n
+                    break
+                z = (z*z) + c
     return M
 
 
@@ -73,7 +84,9 @@ def basic_compute():
     return fractal_surface
 
 def vectorisation():
-    M = mandelbrot(bounds)
+    global colours
+    colours = compute_colours(iterations)
+    M = mandelbrot(bounds, iterations)
     surface_array = colours[M]
 
     return pygame.surfarray.make_surface(np.swapaxes(surface_array, 0, 1))
@@ -82,8 +95,14 @@ def calculate():
     #fractal_surface = basic_compute()
     fractal_surface = vectorisation()
     return fractal_surface
-
-fractal_surface = calculate()
+    
+def render():
+    fractal_surface = calculate()
+    screen.fill((0,0,0))
+    screen.blit(fractal_surface, (0, 0))
+    screen.blit(font.render(f"Zoom: {int(4/size)}x", True, (255, 255, 255)), (10, 10))
+    screen.blit(font.render(f"Iterations: {iterations}", True, (255, 255, 255)), (10, 35))
+render()
 
 while running:
     for event in pygame.event.get(): 
@@ -95,14 +114,14 @@ while running:
             quit()
 
         elif event.type == pygame.MOUSEWHEEL:
-            print(bounds)
             if event.y == 1:
                 bounds = ((bounds[0][0]+size/4,bounds[0][1]-size/4),(bounds[1][0]+size/4,bounds[1][1]-size/4))
             elif event.y == -1:
-                bounds = ((bounds[0][0]-size/2,bounds[0][1]+size/2),(bounds[1][0]-size/2,bounds[1][1]+size/2))
+                if size < 4:
+                    bounds = ((bounds[0][0]-size/2,bounds[0][1]+size/2),(bounds[1][0]-size/2,bounds[1][1]+size/2))
             size = compute_size(bounds)
-            print(bounds)
-            fractal_surface = calculate()
+            iterations = dynamic_iterations(size)
+            render()
 
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_LEFT:
@@ -113,8 +132,6 @@ while running:
                 bounds = (bounds[0], tuple(i-size*0.1 for i in bounds[1]))
             elif event.key == pygame.K_DOWN:
                 bounds = (bounds[0], tuple(i+size*0.1 for i in bounds[1]))
-            size = compute_size(bounds)
-            fractal_surface = calculate()
+            render()
 
-    screen.blit(fractal_surface, (0, 0))
     pygame.display.update()
