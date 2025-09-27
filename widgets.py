@@ -50,3 +50,31 @@ class Slider:
         text_surf = self.font.render(value_text, True, white)
         text_rect = text_surf.get_rect(center=(self.knob_x, self.rect.centery))
         screen.blit(text_surf, text_rect)
+
+
+class ToggleSwitch:
+    def __init__(self, x, y, w, h, initial_state=False, label_default="OFF", label_secondary="ON"):
+        self.rect = pygame.Rect(x, y, w, h)
+        self.state = initial_state
+        self.knob_radius = h // 2 - 2
+        self.font = pygame.font.SysFont("consolas", 20)
+        self.label_default = label_default
+        self.label_secondary = label_secondary
+
+    def handle_event(self, event):
+        if event == None:
+            None
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.rect.collidepoint(event.pos):
+                self.state = not self.state
+
+    def draw(self, screen, on_color=(200,0,0), off_color=(100,100,100), knob_color=(220,220,220)):
+        color = on_color if self.state else off_color
+        pygame.draw.rect(screen, color, self.rect, border_radius=self.rect.height//2)
+        knob_x = self.rect.right - self.rect.height//2 if self.state else self.rect.left + self.rect.height//2
+        knob_center = (knob_x, self.rect.centery)
+        pygame.draw.circle(screen, knob_color, knob_center, self.knob_radius)
+        label = self.label_secondary if self.state else self.label_default
+        text_surf = self.font.render(label, True, white)
+        text_rect = text_surf.get_rect(center=(self.rect.centerx, self.rect.centery))
+        screen.blit(text_surf, text_rect)

@@ -6,103 +6,127 @@ pygame.display.set_caption('Fractals')
 font = pygame.font.SysFont("consolas", 20)
 running = True
 
-import slider
+import widgets
 
 import numpy as np
-from numba import njit, prange
+import cupy as cp
+import math
 
 iterations = 50
+last_bounds = None
+x = y = None
+
 
 from colour import Color
 def compute_colours(iterations):
     red = Color("red")
     colours = list(red.range_to(Color("purple"),iterations))
     colours.append(Color("black"))
-    colours = np.array([tuple(i*255 for i in colour.rgb) for colour in colours])
-    return colours
+    return cp.array([tuple(i*255 for i in colour.rgb) for colour in colours])
 
 colours = compute_colours(iterations)
 
+
 def dynamic_iterations(size, base=50):
-    import math
     return int(base + 20 * math.log2(4 / size))
 
-def mandelbrot_recursive(point, max = iterations, count = 0, start = 0):
-    if abs(start) > 2:
-        return count
-    count += 1
-    if count < max:
-        return mandelbrot_recursive(point, max, count, (start**2) + point)
-    else:
-        return max
+def make_grid(bounds, dtype=cp.float64):
+    global last_bounds, x, y
+    if bounds != last_bounds:
+        re = cp.linspace(bounds[0][0], bounds[0][1], 800, dtype=dtype)
+        im = cp.linspace(bounds[1][0], bounds[1][1], 800, dtype=dtype)
+        x, y = cp.meshgrid(re, im)
+        last_bounds = bounds
+    return x, y
 
-def mandelbrot_basic(point, max = iterations, start = 0):
-    for count in range(max):
-        if abs(start) > 2:
-            return count
-        start = (start**2) + point
-    return max
 
-@njit(parallel=True, fastmath=True)
-def mandelbrot(bounds, max, zx, zy):
-    re = np.linspace(bounds[0][0], bounds[0][1], 800).astype(np.longdouble)
-    im = np.linspace(bounds[1][0], bounds[1][1], 800).astype(np.longdouble)
-    M = np.full((800,800), max, dtype=np.int32)
+mandelbrot_kernel_fast = cp.ElementwiseKernel(
+    'float64 zx, float64 zy, float64 cx, float64 cy, int32 maxiter',
+    'int32 m',
+    '''
+    double zx_temp = zx;
+    double zy_temp = zy;
+    double cx_temp = cx;
+    double cy_temp = cy;
+    for (int i = 0; i < maxiter; i++) {
+        double zx2 = zx_temp * zx_temp - zy_temp * zy_temp + cx_temp;
+        double zy2 = 2 * zx_temp * zy_temp + cy_temp;
+        zx_temp = zx2;
+        zy_temp = zy2;
+        if (zx_temp * zx_temp + zy_temp * zy_temp > 4.0) {
+            m = i;
+            return;
+        }
+    }
+    m = maxiter;
+    ''',
+    'mandelbrot_kernel'
+)
 
-    for ix in prange(800):
-        for iy in prange(800):
-            c = re[ix]+1j*im[iy]
-            z = zx+zy*1j
-            for n in range(max):
-                if ((z.real*z.real)+(z.imag*z.imag)) > 4:
-                    M[iy,ix] = n
-                    break
-                z = (z*z) + c
-    return M
+julia_kernel_fast = cp.ElementwiseKernel(
+    'float64 zx, float64 zy, float64 x0, float64 y0, int32 maxiter',
+    'int32 m',
+    '''
+    double zx_temp = x0;
+    double zy_temp = y0;
+    double cx = zx;
+    double cy = zy;
+    for (int i = 0; i < maxiter; i++) {
+        double zx2 = zx_temp * zx_temp - zy_temp * zy_temp + cx;
+        double zy2 = 2 * zx_temp * zy_temp + cy;
+        zx_temp = zx2;
+        zy_temp = zy2;
+        if (zx_temp * zx_temp + zy_temp * zy_temp > 4.0) {
+            m = i;
+            return;
+        }
+    }
+    m = maxiter;
+    ''',
+    'julia_kernel'
+)
 
 
 bounds = ((-2,2),(-2,2))
-
 def compute_size(bounds):
     return bounds[0][1]-bounds[0][0]
-
 size = compute_size(bounds)
 
-def coordinate(x,y):
-    return ((x+(0-bounds[0][0]))*(800/size), 800-((y+(0-bounds[1][0]))*(800/size)))
 
-def basic_compute():
-    samples = 800
-    surface_array = np.zeros((800, 800, 3))
-    factor = samples/size
-    for x in range(int(bounds[0][0]*factor),int(bounds[0][1]*factor)):
-        x = x/factor
-        for y in range(int(bounds[1][0]*factor),int(bounds[1][1]*factor)):
-            y = y/factor
-            coordinates = tuple(int(i) for i in coordinate(x,y))
-            try: surface_array[coordinates] = colours[mandelbrot_basic(complex(x,0)+complex(0,y))]
-            except: continue
-    fractal_surface = pygame.surfarray.make_surface(surface_array)
-    return fractal_surface
-
+last_iterations = None
 def calculate(zx, zy):
-    global colours
-    colours = compute_colours(iterations)
-    M = mandelbrot(bounds, iterations, zx, zy)
-    surface_array = colours[M]
-    fractal_surface = pygame.surfarray.make_surface(np.swapaxes(surface_array, 0, 1))
-    return fractal_surface
+    global colours, last_iterations
+    if iterations != last_iterations:
+        colours = compute_colours(iterations)
+        last_iterations = iterations
+
+    x, y = make_grid(bounds)
+
+    if set_type:
+        M = mandelbrot_kernel_fast(cp.float64(zx), cp.float64(zy), x, y, cp.int32(iterations))
+    else:
+        M = julia_kernel_fast(cp.float64(zx), cp.float64(zy), x, y, cp.int32(iterations))
+
+    surface_array = cp.asnumpy(colours[M])
+    return pygame.surfarray.make_surface(np.swapaxes(surface_array, 0, 1))
     
-zx_slider = slider.Slider(620, 10, 150, 30, -1, 1, 0, False)
-zy_slider = slider.Slider(620, 50, 150, 30, -1, 1, 0, False)
-zx = zx_slider.value
-zy = zy_slider.value
+
+zx_slider = widgets.Slider(620, 10, 150, 30, -1, 1, 0, False)
+zy_slider = widgets.Slider(620, 50, 150, 30, -1, 1, 0, False)
+zx = cp.float64(zx_slider.value)
+zy = cp.float64(zy_slider.value)
+set_switch = widgets.ToggleSwitch(610, 90, 170, 30, True, "Julia", "Mandelbrot")
+set_type = set_switch.state
+
 def update_sliders(event=None):
-    global zx, zy
+    global zx, zy, set_type
     zx_slider.handle_event(event)
     zy_slider.handle_event(event)
-    zx = zx_slider.value
-    zy = zy_slider.value
+    set_switch.handle_event(event)
+    zx = cp.float64(zx_slider.value)
+    zy = cp.float64(zy_slider.value)
+    set_type = set_switch.state
+
 
 def render(event=None):
     update_sliders(event)
@@ -111,12 +135,16 @@ def render(event=None):
     screen.blit(fractal_surface, (0, 0))
     screen.blit(font.render(f"Zoom: {int(4/size)}x", True, (255, 255, 255)), (10, 10))
     screen.blit(font.render(f"Iterations: {iterations}", True, (255, 255, 255)), (10, 35))
-    pygame.draw.rect(screen, (0,0,0), pygame.Rect(540,0,260,90))
+    pygame.draw.rect(screen, (0,0,0), pygame.Rect(490,0,310,130))
     screen.blit(font.render("Re(z):", True, (255, 255, 255)), (550, 15))
     screen.blit(font.render("Im(z):", True, (255, 255, 255)), (550, 55))
+    screen.blit(font.render("Set type:", True, (255, 255, 255)), (505, 95))
     zx_slider.draw(screen)
     zy_slider.draw(screen)
+    set_switch.draw(screen)
+
 render()
+
 
 while running:
     for event in pygame.event.get(): 
