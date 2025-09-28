@@ -198,8 +198,8 @@ def update_sliders(event=None):
 
 def render(event=None):
     update_sliders(event)
-    fractal_surface = calculate(zx, zy, power)
     if flat:
+        fractal_surface = calculate(zx, zy, power)
         screen.fill((0,0,0))
         screen.blit(fractal_surface, (0, 0))
         screen.blit(font.render(f"Zoom: {int(4/size)}x", True, (255, 255, 255)), (10, 10))
@@ -214,11 +214,22 @@ def render(event=None):
         set_switch.draw(screen)
         power_slider.draw(screen)
     else:
-        screen.fill((255,0,0))
+        pygame.draw.rect(screen, (0,0,0), pygame.Rect(490,0,310,170))
+        screen.blit(font.render("Re(z):", True, (255, 255, 255)), (550, 15))
+        screen.blit(font.render("Im(z):", True, (255, 255, 255)), (550, 55))
+        screen.blit(font.render("Power:", True, (255, 255, 255)), (530, 95))
+        screen.blit(font.render("Set type:", True, (255, 255, 255)), (505, 135))
+        zx_slider.draw(screen)
+        zy_slider.draw(screen)
+        set_switch.draw(screen)
+        power_slider.draw(screen)
 
 
 if __name__ == "__main__":
-    render()
+    if not flat:
+        calculate(zx, zy, power)
+    else:
+        render()
 
     while running:
         for event in pygame.event.get(): 
@@ -309,6 +320,6 @@ if __name__ == "__main__":
             colour_vbo.unbind()
             glDisableClientState(GL_VERTEX_ARRAY)
             glDisableClientState(GL_COLOR_ARRAY)
-                
+
 
         pygame.display.flip()
