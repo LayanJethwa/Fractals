@@ -13,7 +13,7 @@ This project generates fractals in the Mandelbrot and Julia sets, displaying the
 
 ## Usage
 
-Download and run the fractals.py file for the main code, and the fractals_3d_opengl.py file for the 3D render of the Mandelbrot set.
+Download and run the fractals.py file for the main code, and the fractals_3d_opengl.py file for the 3D render of the Mandelbrot set. I am running it on an Nvidia 3070 Ti GPU.
 
 ## Demo
 
