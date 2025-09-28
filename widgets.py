@@ -3,7 +3,7 @@ from datetime import datetime
 white = (255,255,255)
 
 class Slider:
-    def __init__(self, x, y, w, h, min_val, max_val, initial_val, percent=False):
+    def __init__(self, x, y, w, h, min_val, max_val, initial_val, percent=False, integer=False):
         self.rect = pygame.Rect(x, y, w, h)
         self.knob_radius = h // 2
         self.min_val = min_val
@@ -15,13 +15,17 @@ class Slider:
         self.font = pygame.font.SysFont("consolas", 20)
         self.percent = percent
         self.time = 0
+        self.integer = integer
 
     def get_knob_x_from_value(self, value):
         return (self.rect.x + (value - self.min_val) / (self.max_val - self.min_val) * self.rect.w)
 
     def get_value_from_knob(self, knob_x):
         ratio = (knob_x - self.rect.x) / self.rect.w
-        return (self.min_val + ratio * (self.max_val - self.min_val))
+        val = (self.min_val + ratio * (self.max_val - self.min_val))
+        if self.integer:
+            val = int(round(val))
+        return val
 
     def handle_event(self, event):
         if event == None:
@@ -45,6 +49,8 @@ class Slider:
         pygame.draw.rect(screen, track_color, self.rect)
         pygame.draw.circle(screen, knob_color, (self.knob_x, self.rect.centery), self.knob_radius)
         value_text = str(round(self.value,3))
+        if self.integer:
+            value_text = str(int(self.value))
         if self.percent:
             value_text += "%"
         text_surf = self.font.render(value_text, True, white)
