@@ -17,5 +17,5 @@ Download and run the fractals.py file for the main code, and the fractals_3d_ope
 
 ## Demo
 
-![Showcase gif]()
+![Showcase gif](https://github.com/LayanJethwa/Fractals/blob/main/fractals.gif)
 
