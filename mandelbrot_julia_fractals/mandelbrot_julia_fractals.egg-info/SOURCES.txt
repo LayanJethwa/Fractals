@@ -1,0 +1,11 @@
+LICENSE
+README.md
+setup.py
+mandelbrot_julia_fractals/__init__.py
+mandelbrot_julia_fractals/fractals.py
+mandelbrot_julia_fractals/mandelbrot_3d_opengl.py
+mandelbrot_julia_fractals/widgets.py
+mandelbrot_julia_fractals.egg-info/PKG-INFO
+mandelbrot_julia_fractals.egg-info/SOURCES.txt
+mandelbrot_julia_fractals.egg-info/dependency_links.txt
+mandelbrot_julia_fractals.egg-info/top_level.txt
