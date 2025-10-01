@@ -8,4 +8,5 @@ mandelbrot_julia_fractals/widgets.py
 mandelbrot_julia_fractals.egg-info/PKG-INFO
 mandelbrot_julia_fractals.egg-info/SOURCES.txt
 mandelbrot_julia_fractals.egg-info/dependency_links.txt
+mandelbrot_julia_fractals.egg-info/requires.txt
 mandelbrot_julia_fractals.egg-info/top_level.txt

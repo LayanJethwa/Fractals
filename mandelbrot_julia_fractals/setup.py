@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="mandelbrot_julia_fractals",
-    version="1.0.0",
+    version="1.0.2",
     author="Layan Jethwa",
     author_email="lrsjethwa3.14@gmail.com",
     description="A fractal visualisation for the Mandelbrot and Julia sets",
@@ -18,10 +18,10 @@ setuptools.setup(
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    dependencies=[
+    install_requires=[
         "colour==0.1.5",
         "cupy_cuda13x==13.6.0",
-        "numpy==2.3.3",
+        "numpy==2.1.1",
         "pygame==2.1.2",
         "PyOpenGL==3.1.10"
     ],

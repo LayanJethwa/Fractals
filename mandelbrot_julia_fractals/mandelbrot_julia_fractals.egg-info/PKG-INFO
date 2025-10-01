@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mandelbrot-julia-fractals
-Version: 1.0.0
+Version: 1.0.2
 Summary: A fractal visualisation for the Mandelbrot and Julia sets
 Home-page: https://github.com/LayanJethwa/fractals
 Author: Layan Jethwa
